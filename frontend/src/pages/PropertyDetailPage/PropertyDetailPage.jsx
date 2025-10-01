@@ -277,10 +277,18 @@ const PropertyDetailPage = () => {
                                                                                                             }
                                                                                                             // Determine user role for correct action
                                                                                                             const role = localStorage.getItem('user_role');
+                                                                                                            // Pass property info as query params for chat context
+                                                                                                            const params = new URLSearchParams({
+                                                                                                                user: ownerId,
+                                                                                                                propertyTitle: property.title || '',
+                                                                                                                propertyImage: (property.images && property.images[0]) ? property.images[0] : '',
+                                                                                                                propertyPrice: property.price ? String(property.price) : '',
+                                                                                                                propertyId: property._id || property.id || id || ''
+                                                                                                            }).toString();
                                                                                                             if (role === 'landlord') {
-                                                                                                                navigate(`/landlord/messages?user=${ownerId}`);
+                                                                                                                navigate(`/landlord/messages?${params}`);
                                                                                                             } else {
-                                                                                                                navigate(`/tenant/messages?user=${ownerId}`);
+                                                                                                                navigate(`/tenant/messages?${params}`);
                                                                                                             }
                                                                                                         } else {
                                                                                                             toast.error('Owner information not available');

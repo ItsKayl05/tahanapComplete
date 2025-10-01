@@ -15,7 +15,7 @@ export const getMessageThreads = async (req, res) => {
 		for (const msg of messages) {
 			const otherId = String(msg.sender) === String(myId) ? String(msg.receiver) : String(msg.sender);
 			if (!userMap.has(otherId)) {
-				userMap.set(otherId, { lastMessage: msg.content, lastMessageAt: msg.createdAt });
+				userMap.set(otherId, { lastMessage: msg.content, lastMessageAt: msg.createdAt, property: msg.property });
 			}
 		}
 		const userIds = Array.from(userMap.keys());
@@ -28,9 +28,18 @@ export const getMessageThreads = async (req, res) => {
 			fullName: u.fullName,
 			username: u.username,
 			profilePic: u.profilePic,
-			lastMessage: userMap.get(String(u._id)).lastMessage
+			lastMessage: userMap.get(String(u._id)).lastMessage,
+			property: userMap.get(String(u._id)).property
 		}));
-		res.json(result);
+		// Populate property info for threads
+		const propertyIds = result.map(r => r.property).filter(Boolean);
+		let propertyMap = {};
+		if (propertyIds.length) {
+			const props = await (await import('../models/Property.js')).default.find({ _id: { $in: propertyIds } }).select('_id title price images');
+			propertyMap = Object.fromEntries(props.map(p => [String(p._id), p]));
+		}
+		const resultWithProperty = result.map(r => r.property ? { ...r, propertyInfo: propertyMap[String(r.property)] } : r);
+		res.json(resultWithProperty);
 	} catch (err) {
 		res.status(500).json({ message: 'Error fetching message threads', error: err.message });
 	}
@@ -66,7 +75,7 @@ export const getMessages = async (req, res) => {
 				{ sender: myId, receiver: userId },
 				{ sender: userId, receiver: myId }
 			]
-		}).sort({ createdAt: 1 });
+		}).sort({ createdAt: 1 }).populate({ path: 'property', select: '_id title price images' });
 		res.json(messages);
 	} catch (err) {
 		res.status(500).json({ message: 'Error fetching messages', error: err.message });

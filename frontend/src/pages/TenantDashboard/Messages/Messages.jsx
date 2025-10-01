@@ -14,6 +14,11 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchParams] = useSearchParams();
   const targetUserId = searchParams.get('user');
+  // Extract property context from URL if present
+  const propertyTitle = searchParams.get('propertyTitle') || '';
+  const propertyImage = searchParams.get('propertyImage') || '';
+  const propertyPrice = searchParams.get('propertyPrice') || '';
+  const propertyId = searchParams.get('propertyId') || '';
   const currentUserId = propCurrentUserId || localStorage.getItem('user_id') || '';
 
   useEffect(() => {
@@ -28,13 +33,32 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
         if (targetUserId) {
           const found = res.data.find(u => String(u._id || u.id) === String(targetUserId));
           if (found) {
-            setSelectedUser({ ...found, _id: String(found._id || found.id) });
+            // If property context is present in URL, attach as propertyInfo
+            let userWithProperty = { ...found, _id: String(found._id || found.id) };
+            if (propertyTitle || propertyImage || propertyPrice || propertyId) {
+              userWithProperty.propertyInfo = {
+                title: propertyTitle,
+                images: propertyImage ? [propertyImage] : [],
+                price: propertyPrice,
+                _id: propertyId
+              };
+            }
+            setSelectedUser(userWithProperty);
           } else {
             // If target user isn't in threads (no prior messages), fetch their public profile
             axios.get(`/api/users/landlord/${targetUserId}/profile`)
               .then(r => {
                 const u = r.data;
-                setSelectedUser({ _id: String(u.id || u._id), fullName: u.fullName, username: u.username, profilePic: u.profilePic });
+                let userWithProperty = { _id: String(u.id || u._id), fullName: u.fullName, username: u.username, profilePic: u.profilePic };
+                if (propertyTitle || propertyImage || propertyPrice || propertyId) {
+                  userWithProperty.propertyInfo = {
+                    title: propertyTitle,
+                    images: propertyImage ? [propertyImage] : [],
+                    price: propertyPrice,
+                    _id: propertyId
+                  };
+                }
+                setSelectedUser(userWithProperty);
               })
               .catch(() => {
                 // ignore - leave unselected
@@ -66,7 +90,17 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
       </div>
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#f4f6fb'}}>
         {selectedUser ? (
-          <ChatBox currentUserId={String(currentUserId)} targetUserId={String(selectedUser._id)} targetUserName={selectedUser.fullName || selectedUser.username} targetUserAvatar={selectedUser.profilePic} large />
+          <ChatBox
+            currentUserId={String(currentUserId)}
+            targetUserId={String(selectedUser._id)}
+            targetUserName={selectedUser.fullName || selectedUser.username}
+            targetUserAvatar={selectedUser.profilePic}
+            large
+            propertyTitle={selectedUser.propertyInfo?.title || ''}
+            propertyImage={selectedUser.propertyInfo?.images?.[0] || ''}
+            propertyPrice={selectedUser.propertyInfo?.price || ''}
+            propertyId={selectedUser.propertyInfo?._id || ''}
+          />
         ) : (
           <div style={{color:'#888',fontSize:'1.1em'}}>Select a conversation to start chatting</div>
         )}
