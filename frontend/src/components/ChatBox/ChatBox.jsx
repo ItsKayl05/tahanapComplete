@@ -86,16 +86,19 @@ function renderMessagesWithPropertyContext(messages, currentUser, targetUserAvat
     let property = msg.property && typeof msg.property === 'object' && (msg.property.title || msg.property.price || (msg.property.images && msg.property.images.length));
     if (property && !shownPropertyIds.has(msg.property._id)) {
       shownPropertyIds.add(msg.property._id);
+      // Fix: Always use buildUpload for non-absolute URLs, fallback to default image
+      let propertyImg = (msg.property.images && msg.property.images[0]) ? msg.property.images[0] : null;
+      let propertyImgSrc = propertyImg
+        ? (propertyImg.startsWith('http') ? propertyImg : buildUpload(`/properties/${propertyImg}`))
+        : '/default-property.png';
       return [
-        <div key={`property-context-${msg.property._id || i}`} className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'12px 0',color:'#fff',maxWidth:420}}>
-          {msg.property.images && msg.property.images[0] && (
-            <img src={msg.property.images[0]} alt="Property" style={{width:48,height:48,borderRadius:8,objectFit:'cover',border:'2px solid #fff'}} />
-          )}
+        <div key={`property-context-${msg.property._id || i}`} className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'24px 0 12px 0',color:'#fff',maxWidth:420,position:'relative',zIndex:2}}>
+          <img src={propertyImgSrc} alt="Property" style={{width:64,height:64,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />
           <div style={{flex:1}}>
-            <div style={{fontWeight:600,fontSize:'1.05em',marginBottom:2}}>{msg.property.title}</div>
-            {msg.property.price && <div style={{fontSize:'0.98em',color:'#a3e635'}}>₱{Number(msg.property.price).toLocaleString()}</div>}
+            <div style={{fontWeight:600,fontSize:'1.08em',marginBottom:2}}>{msg.property.title}</div>
+            {msg.property.price && <div style={{fontSize:'1em',color:'#a3e635'}}>₱{Number(msg.property.price).toLocaleString()}</div>}
           </div>
-          <a href={`/property/${msg.property._id}`} target="_blank" rel="noopener noreferrer" style={{marginLeft:'auto',background:'#a3e635',color:'#23272f',padding:'7px 16px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'0.98em'}}>View Details</a>
+          <a href={`/property/${msg.property._id}`} style={{marginLeft:'auto',background:'linear-gradient(90deg,#2563eb 0%,#1e40af 100%)',color:'#fff',padding:'9px 20px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'1em',boxShadow:'0 2px 8px #2563eb55'}}>View Details</a>
         </div>,
         renderMessageRow(msg, i, messages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)
       ];
@@ -175,6 +178,13 @@ function ChatBox({
     }
   }, [chatMessages]);
 
+  // Auto-scroll to the bottom of the chat when property context is present, so the property details card and input are always visible after navigating from 'Message Landlord'.
+  useEffect(() => {
+    if ((propertyTitle || propertyImage || propertyPrice) && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [propertyTitle, propertyImage, propertyPrice]);
+
   // Socket real-time update
   const { socket } = useSocket();
   useEffect(() => {
@@ -199,18 +209,13 @@ function ChatBox({
     if (!input.trim()) return;
     try {
       const token = localStorage.getItem('user_token');
-      // Always include property info if property context exists
+      // Always include propertyId only if property context exists
       const payload = {
         receiver: targetUserId,
         content: input,
       };
-      if (propertyTitle || propertyImage || propertyPrice || propertyId) {
-        payload.property = {
-          _id: propertyId,
-          title: propertyTitle,
-          price: propertyPrice,
-          images: propertyImage ? [propertyImage] : [],
-        };
+      if (propertyId) {
+        payload.property = propertyId;
       }
       await axios.post('/api/messages', payload, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
       setInput('');
@@ -222,35 +227,44 @@ function ChatBox({
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-start' }}>
-      <div className={`chatbox-container ${large ? 'large' : ''}`} style={{ width: '100%', maxWidth: 600, margin: '0 auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 12px #0001', minHeight: 400, display: 'flex', flexDirection: 'column', padding: 0 }}>
-        <div className="chatbox-header" style={{ borderBottom: '1px solid #eee', padding: '16px 20px', display: 'flex', alignItems: 'center' }}>
-          <img className="chatbox-header-avatar" src={(targetUserAvatar && targetUserAvatar.startsWith('http')) ? targetUserAvatar : (targetUserAvatar ? buildUpload(`/profiles/${targetUserAvatar}`) : '/default-avatar.png')} alt={targetUserName} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', marginRight: 12 }} />
-          <div className="chatbox-header-title" style={{ fontWeight: 600, fontSize: '1.1em' }}>{targetUserName}</div>
-        </div>
-        <div className="chatbox-messages" style={{ flex: 1, overflowY: 'auto', padding: 20, width: '100%' }}>
-          {Array.isArray(chatMessages) && chatMessages.length === 0 && (
-            <div style={{ color: '#888', textAlign: 'center', marginTop: 40 }}>No messages yet.</div>
-          )}
-          {renderMessagesWithPropertyContext(chatMessages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)}
-          <div ref={messagesEndRef} />
-        </div>
-        {/* Property context above input */}
-        {(propertyTitle || propertyImage || propertyPrice) && (
-          <div className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'12px 20px 0 20px',color:'#fff',maxWidth:420}}>
-            {propertyImage && (
-              <img src={propertyImage} alt="Property" style={{width:48,height:48,borderRadius:8,objectFit:'cover',border:'2px solid #fff'}} />
-            )}
-            <div style={{flex:1}}>
-              <div style={{fontWeight:600,fontSize:'1.05em',marginBottom:2}}>{propertyTitle}</div>
-              {propertyPrice && <div style={{fontSize:'0.98em',color:'#a3e635'}}>₱{Number(propertyPrice).toLocaleString()}</div>}
-            </div>
-            {propertyId && <a href={`/property/${propertyId}`} style={{marginLeft:'auto',background:'#a3e635',color:'#23272f',padding:'7px 16px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'0.98em'}}>View Details</a>}
+      <div className={`chatbox-container ${large ? 'large' : ''}`} style={{ width: '100%', maxWidth: 600, margin: '0 auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 12px #0001', minHeight: 400, display: 'flex', flexDirection: 'column', height: '80vh' }}>
+  <div className="chatbox-header" style={{ borderBottom: '1px solid #eee', padding: '16px 20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          <div style={{display:'flex',alignItems:'center',width:'100%'}}>
+            <img className="chatbox-header-avatar" src={(targetUserAvatar && targetUserAvatar.startsWith('http')) ? targetUserAvatar : (targetUserAvatar ? buildUpload(`/profiles/${targetUserAvatar}`) : '/default-avatar.png')} alt={targetUserName} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', marginRight: 12 }} />
+            <div className="chatbox-header-title" style={{ fontWeight: 600, fontSize: '1.1em' }}>{targetUserName}</div>
           </div>
-        )}
-        <form className="chatbox-input-row" onSubmit={sendMessage} style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid #eee', padding: '12px 16px', width: '100%' }}>
-          <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message..." style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', marginRight: 8 }} />
-          <button type="submit" style={{ padding: '10px 20px', borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 600, border: 'none' }}>Send</button>
-        </form>
+          {/* Property context directly below landlord name */}
+          {(propertyTitle || propertyImage || propertyPrice) && (
+            <div className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'12px 0 0 0',color:'#fff',maxWidth:'100%',width:'100%',boxSizing:'border-box',alignSelf:'stretch'}}>
+              {propertyImage && (
+                <img src={propertyImage.startsWith('http') ? propertyImage : buildUpload(`/properties/${propertyImage}`)} alt="Property" style={{width:56,height:56,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />
+              )}
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:'1.05em',marginBottom:2}}>{propertyTitle}</div>
+                {propertyPrice && <div style={{fontSize:'0.98em',color:'#a3e635'}}>₱{Number(propertyPrice).toLocaleString()}</div>}
+              </div>
+              {propertyId && <a href={`/property/${propertyId}`} style={{marginLeft:'auto',background:'linear-gradient(90deg,#2563eb 0%,#1e40af 100%)',color:'#fff',padding:'7px 16px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'0.98em',boxShadow:'0 2px 8px #2563eb55'}}>View Details</a>}
+            </div>
+          )}
+        </div>
+        {/* Main flex area: messages (scrollable), bottom bar (property + input) */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {/* Scrollable messages */}
+          <div className="chatbox-messages" style={{ flex: 1, overflowY: 'auto', padding: 20, width: '100%', position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {Array.isArray(chatMessages) && chatMessages.length === 0 && (
+              <div style={{ color: '#888', textAlign: 'center', marginTop: 40 }}>No messages yet.</div>
+            )}
+            {renderMessagesWithPropertyContext(chatMessages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)}
+            <div ref={messagesEndRef} />
+          </div>
+          {/* Bottom bar: input only, property context is now always at the top */}
+          <div style={{width:'100%',background:'#fff',boxSizing:'border-box',paddingBottom:0}}>
+            <form className="chatbox-input-row" onSubmit={sendMessage} style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid #eee', padding: '12px 16px', width: '100%', background: '#fff' }}>
+              <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message..." style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', marginRight: 8 }} />
+              <button type="submit" style={{ padding: '10px 20px', borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 600, border: 'none' }}>Send</button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );
