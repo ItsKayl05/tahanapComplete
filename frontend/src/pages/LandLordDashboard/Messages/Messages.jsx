@@ -73,7 +73,17 @@ const Messages = ({ currentUserId }) => {
       </div>
   <div className="messages-area" style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#f4f6fb'}}>
         {selectedUser ? (
-          <ChatBox currentUserId={currentUserId} targetUserId={selectedUser._id} targetUserName={selectedUser.fullName || selectedUser.username} targetUserAvatar={selectedUser.profilePic} large />
+          <ChatBox
+            currentUserId={currentUserId}
+            targetUserId={selectedUser._id}
+            targetUserName={selectedUser.fullName || selectedUser.username}
+            targetUserAvatar={selectedUser.profilePic}
+            large
+            propertyTitle={selectedUser.propertyInfo?.title || ''}
+            propertyImage={selectedUser.propertyInfo?.images?.[0] || ''}
+            propertyPrice={selectedUser.propertyInfo?.price || ''}
+            propertyId={selectedUser.propertyInfo?._id || ''}
+          />
         ) : (
           <div style={{color:'#888',fontSize:'1.1em'}}>Select a conversation to start chatting</div>
         )}

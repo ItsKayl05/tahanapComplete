@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useContext } from 'react';
 import './Messages.css';
 import { useSearchParams } from 'react-router-dom';
@@ -12,6 +11,7 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
   const { logout } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [userPropertyMap, setUserPropertyMap] = useState({}); // userId -> propertyInfo
   const [searchParams] = useSearchParams();
   const targetUserId = searchParams.get('user');
   // Extract property context from URL if present
@@ -42,6 +42,7 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
                 price: propertyPrice,
                 _id: propertyId
               };
+              setUserPropertyMap(prev => ({ ...prev, [userWithProperty._id]: userWithProperty.propertyInfo }));
             }
             setSelectedUser(userWithProperty);
           } else {
@@ -57,6 +58,7 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
                     price: propertyPrice,
                     _id: propertyId
                   };
+                  setUserPropertyMap(prev => ({ ...prev, [userWithProperty._id]: userWithProperty.propertyInfo }));
                 }
                 setSelectedUser(userWithProperty);
               })
@@ -69,6 +71,13 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
       .catch(() => setUsers([]));
   }, [currentUserId, targetUserId]);
 
+  // When user clicks a conversation, always attach last known propertyInfo if available
+  const handleSelectUser = (u) => {
+    const userId = String(u._id);
+    let propertyInfo = userPropertyMap[userId] || u.propertyInfo;
+    setSelectedUser({ ...u, propertyInfo });
+  };
+
   return (
     <div className="tenant-dashboard dashboard-container">
       <TenantSidebar handleLogout={() => { logout(); localStorage.removeItem('user_token'); window.dispatchEvent(new Event('storage')); }} />
@@ -79,7 +88,7 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
   <h3 className="messages-title">Messages</h3>
         {users.length === 0 && <div style={{color:'#888',padding:'1em'}}>No conversations yet.</div>}
         {users.map(u => (
-          <div key={u._id} style={{padding:'0.75em 1em',cursor:'pointer',background:selectedUser&&selectedUser._id===u._id?'#e6eaff':'',display:'flex',alignItems:'center',borderRadius:8,margin:'0.25em 0'}} onClick={()=>setSelectedUser(u)}>
+          <div key={u._id} style={{padding:'0.75em 1em',cursor:'pointer',background:selectedUser&&selectedUser._id===u._id?'#e6eaff':'',display:'flex',alignItems:'center',borderRadius:8,margin:'0.25em 0'}} onClick={()=>handleSelectUser(u)}>
             <img src={(u.profilePic && u.profilePic.startsWith('http')) ? u.profilePic : (u.profilePic ? buildUpload(`/profiles/${u.profilePic}`) : '/default-avatar.png')} alt={u.fullName} style={{width:40,height:40,borderRadius:'50%',marginRight:12,objectFit:'cover',border:'2px solid #dbeafe'}} />
             <div style={{flex:1}}>
               <div className="messages-username">{u.fullName || u.username}</div>

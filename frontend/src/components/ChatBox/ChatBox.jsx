@@ -141,10 +141,9 @@ function ChatBox({
 
   // chatMessages must be defined before input state initialization
   const [chatMessages, setChatMessages] = useState([]);
-  // Auto-fill input for new property chat
+  // Auto-fill input for new property chat (do not reference chatMessages in initializer)
   const [input, setInput] = useState(() => {
-    // If there are no messages and property context exists, prefill
-    if ((propertyTitle || propertyImage || propertyPrice) && chatMessages.length === 0) {
+    if (propertyTitle || propertyImage || propertyPrice) {
       return 'Hello, im interested';
     }
     return '';
@@ -200,13 +199,12 @@ function ChatBox({
     if (!input.trim()) return;
     try {
       const token = localStorage.getItem('user_token');
-      // If this is the first message and property context exists, include property info
-      const isFirstMessage = chatMessages.length === 0;
+      // Always include property info if property context exists
       const payload = {
         receiver: targetUserId,
         content: input,
       };
-      if (isFirstMessage && (propertyTitle || propertyImage || propertyPrice || propertyId)) {
+      if (propertyTitle || propertyImage || propertyPrice || propertyId) {
         payload.property = {
           _id: propertyId,
           title: propertyTitle,
@@ -229,6 +227,13 @@ function ChatBox({
           <img className="chatbox-header-avatar" src={(targetUserAvatar && targetUserAvatar.startsWith('http')) ? targetUserAvatar : (targetUserAvatar ? buildUpload(`/profiles/${targetUserAvatar}`) : '/default-avatar.png')} alt={targetUserName} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', marginRight: 12 }} />
           <div className="chatbox-header-title" style={{ fontWeight: 600, fontSize: '1.1em' }}>{targetUserName}</div>
         </div>
+        <div className="chatbox-messages" style={{ flex: 1, overflowY: 'auto', padding: 20, width: '100%' }}>
+          {Array.isArray(chatMessages) && chatMessages.length === 0 && (
+            <div style={{ color: '#888', textAlign: 'center', marginTop: 40 }}>No messages yet.</div>
+          )}
+          {renderMessagesWithPropertyContext(chatMessages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)}
+          <div ref={messagesEndRef} />
+        </div>
         {/* Property context above input */}
         {(propertyTitle || propertyImage || propertyPrice) && (
           <div className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'12px 20px 0 20px',color:'#fff',maxWidth:420}}>
@@ -239,16 +244,9 @@ function ChatBox({
               <div style={{fontWeight:600,fontSize:'1.05em',marginBottom:2}}>{propertyTitle}</div>
               {propertyPrice && <div style={{fontSize:'0.98em',color:'#a3e635'}}>₱{Number(propertyPrice).toLocaleString()}</div>}
             </div>
-            {propertyId && <a href={`/property/${propertyId}`} target="_blank" rel="noopener noreferrer" style={{marginLeft:'auto',background:'#a3e635',color:'#23272f',padding:'7px 16px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'0.98em'}}>View Details</a>}
+            {propertyId && <a href={`/property/${propertyId}`} style={{marginLeft:'auto',background:'#a3e635',color:'#23272f',padding:'7px 16px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'0.98em'}}>View Details</a>}
           </div>
         )}
-        <div className="chatbox-messages" style={{ flex: 1, overflowY: 'auto', padding: 20, width: '100%' }}>
-          {Array.isArray(chatMessages) && chatMessages.length === 0 && (
-            <div style={{ color: '#888', textAlign: 'center', marginTop: 40 }}>No messages yet.</div>
-          )}
-          {renderMessagesWithPropertyContext(chatMessages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)}
-          <div ref={messagesEndRef} />
-        </div>
         <form className="chatbox-input-row" onSubmit={sendMessage} style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid #eee', padding: '12px 16px', width: '100%' }}>
           <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message..." style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', marginRight: 8 }} />
           <button type="submit" style={{ padding: '10px 20px', borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 600, border: 'none' }}>Send</button>
