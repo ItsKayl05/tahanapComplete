@@ -26,7 +26,11 @@ function renderMessageRow(msg, i, messages, currentUser, targetUserAvatar, targe
       bubbleClass: 'me'
     };
     avatarSrc = msg.senderAvatar || 
-               (currentUser?.profilePic && buildUpload(`/profiles/${currentUser.profilePic}`)) ||
+               (currentUser?.profilePic && (
+                 currentUser.profilePic.startsWith('http')
+                   ? currentUser.profilePic
+                   : (currentUser.profilePic.startsWith('/uploads/') ? buildUpload(currentUser.profilePic.replace(/^\/uploads/, '')) : buildUpload(`/profiles/${currentUser.profilePic}`))
+               )) ||
                deriveAvatarFromLocal() ||
                '/default-avatar.png';
   } else {
@@ -36,9 +40,9 @@ function renderMessageRow(msg, i, messages, currentUser, targetUserAvatar, targe
     };
     avatarSrc = msg.senderAvatar ||
                (targetUserAvatar && (
-                 targetUserAvatar.startsWith('http') 
-                   ? targetUserAvatar 
-                   : buildUpload(`/profiles/${targetUserAvatar}`)
+                 (targetUserAvatar.startsWith('http'))
+                   ? targetUserAvatar
+                   : (targetUserAvatar.startsWith('/uploads/') ? buildUpload(targetUserAvatar.replace(/^\/uploads/, '')) : buildUpload(`/profiles/${targetUserAvatar}`))
                )) ||
                buildUpload(`/profiles/${msgSenderId}_profile.jpg`) ||
                '/default-avatar.png';
@@ -83,15 +87,16 @@ function renderMessagesWithPropertyContext(messages, currentUser, targetUserAvat
   if (!Array.isArray(messages)) return null;
   let shownPropertyIds = new Set();
   return messages.map((msg, i) => {
-    let property = msg.property && typeof msg.property === 'object' && (msg.property.title || msg.property.price || (msg.property.images && msg.property.images.length));
+    let property = msg.property && typeof msg.property === 'object' && (msg.property.title || msg.property.price || (Array.isArray(msg.property.images) && msg.property.images.length));
     if (property && !shownPropertyIds.has(msg.property._id)) {
       shownPropertyIds.add(msg.property._id);
-      // Fix: Always use buildUpload for non-absolute URLs, fallback to default image
-      let propertyImg = (msg.property.images && msg.property.images[0]) ? msg.property.images[0] : null;
+      // DEBUG: Log property object and images
+      console.log('DEBUG property in chat:', msg.property);
+      // Use image as-is if it already points to uploads or is an http(s) URL; otherwise buildUpload
+      let propertyImg = (Array.isArray(msg.property.images) && msg.property.images.length > 0) ? msg.property.images[0] : null;
       let propertyImgSrc = propertyImg
-        ? (propertyImg.startsWith('http') ? propertyImg : buildUpload(`/properties/${propertyImg}`))
+        ? (propertyImg.startsWith('http') ? propertyImg : (propertyImg.startsWith('/uploads/') ? buildUpload(propertyImg.replace(/^\/uploads/, '')) : buildUpload(`/properties/${propertyImg}`)))
         : '/default-property.png';
-      console.log('Property image src:', propertyImgSrc, 'propertyImg:', propertyImg);
       return [
         <div key={`property-context-${msg.property._id || i}`} className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'24px 0 12px 0',color:'#fff',maxWidth:420,position:'relative',zIndex:2}}>
           <img src={propertyImgSrc} alt="Property" style={{width:64,height:64,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />
@@ -115,9 +120,9 @@ function deriveAvatarFromLocal() {
     try {
       const parsed = JSON.parse(user);
       if (parsed.profilePic) {
-        return parsed.profilePic.startsWith('http')
-          ? parsed.profilePic
-          : `/uploads/profiles/${parsed.profilePic}`;
+  if (parsed.profilePic.startsWith('http')) return parsed.profilePic;
+  if (parsed.profilePic.startsWith('/uploads/')) return buildUpload(parsed.profilePic.replace(/^\/uploads/, ''));
+  return `/uploads/profiles/${parsed.profilePic}`;
       }
     } catch {}
   }
@@ -238,8 +243,8 @@ function ChatBox({
           {(propertyTitle || propertyImage || propertyPrice) && (
             <div className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'12px 0 0 0',color:'#fff',maxWidth:'100%',width:'100%',boxSizing:'border-box',alignSelf:'stretch'}}>
               {propertyImage && (
-                <img src={propertyImage.startsWith('http') ? propertyImage : buildUpload(`/properties/${propertyImage}`)} alt="Property" style={{width:56,height:56,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />
-              )}
+                      <img src={propertyImage.startsWith('http') ? propertyImage : (propertyImage.startsWith('/uploads/') ? buildUpload(propertyImage.replace(/^\/uploads/, '')) : buildUpload(`/properties/${propertyImage}`))} alt="Property" style={{width:56,height:56,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />
+                    )}
               <div style={{flex:1}}>
                 <div style={{fontWeight:600,fontSize:'1.05em',marginBottom:2}}>{propertyTitle}</div>
                 {propertyPrice && <div style={{fontSize:'0.98em',color:'#a3e635'}}>₱{Number(propertyPrice).toLocaleString()}</div>}

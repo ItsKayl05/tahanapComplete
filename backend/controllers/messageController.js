@@ -59,7 +59,9 @@ export const sendMessage = async (req, res) => {
 			property: property || undefined
 		});
 		await message.save();
-		res.status(201).json(message);
+		// Populate property images after saving
+		const populatedMessage = await Message.findById(message._id).populate({ path: 'property', select: '_id title price images' });
+		res.status(201).json(populatedMessage);
 	} catch (err) {
 		res.status(500).json({ message: 'Error sending message', error: err.message });
 	}
