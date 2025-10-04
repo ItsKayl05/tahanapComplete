@@ -15,17 +15,20 @@ const AdminDashboard = () => {
   const [tenantsCount, setTenantsCount] = useState(0);
   const [totalProperties, setTotalProperties] = useState(0);
 
+  const [barangayStats, setBarangayStats] = useState([]);
   // Fetch data from backend
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         const usersRes = await axios.get(buildApi('/admin/total-users'));
         const propertiesRes = await axios.get(buildApi('/admin/total-properties'));
+        const brgyStatsRes = await axios.get(buildApi('/admin/user-barangay-stats'));
 
         setTotalUsers(usersRes.data.totalUsers || 0);
         setLandlordsCount(usersRes.data.landlords || 0);
         setTenantsCount(usersRes.data.tenants || 0);
         setTotalProperties(propertiesRes.data.totalProperties || 0);
+        setBarangayStats(brgyStatsRes.data.barangayStats || []);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
@@ -52,6 +55,34 @@ const AdminDashboard = () => {
             <div className="card-accent-purple"><DashboardCard title="Landlords" value={landlordsCount} icon={<FaUserTie />} /></div>
             <div className="card-accent-green"><DashboardCard title="Tenants" value={tenantsCount} icon={<FaUser />} /></div>
             <div className="card-accent-yellow"><DashboardCard title="Properties Listed" value={totalProperties} icon={<FaBuilding />} /></div>
+          </div>
+          {/* Per-barangay breakdown */}
+          <div className="barangay-stats-section" style={{marginTop: '2.5rem'}}>
+            <h2 style={{fontSize: '1.3rem', marginBottom: '1.2rem'}}>Landlords & Tenants per Barangay</h2>
+            <div className="barangay-stats-tables" style={{display: 'flex', gap: '2.5rem', flexWrap: 'wrap'}}>
+              <div style={{flex: 1, minWidth: 260}}>
+                <h3 style={{fontSize: '1.1rem', marginBottom: '0.7rem'}}>Landlords</h3>
+                <table className="barangay-table">
+                  <thead><tr><th>Barangay</th><th>Count</th></tr></thead>
+                  <tbody>
+                    {barangayStats.filter(b => b.landlords > 0).map(b => (
+                      <tr key={b.barangay}><td>{b.barangay}</td><td>{b.landlords}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{flex: 1, minWidth: 260}}>
+                <h3 style={{fontSize: '1.1rem', marginBottom: '0.7rem'}}>Tenants</h3>
+                <table className="barangay-table">
+                  <thead><tr><th>Barangay</th><th>Count</th></tr></thead>
+                  <tbody>
+                    {barangayStats.filter(b => b.tenants > 0).map(b => (
+                      <tr key={b.barangay}><td>{b.barangay}</td><td>{b.tenants}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </main>
       </div>

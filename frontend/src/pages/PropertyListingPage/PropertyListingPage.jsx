@@ -9,24 +9,16 @@ import { getToken } from '../../services/auth/getToken';
 import './PropertyListingPage.css';
 
 const landmarkOptions = [
-  "Government Buildings",
-  "Transport Hubs",
-  "Schools/Universities",
-  "Mall",
-  "Hospitals/Healthcare Facilities",
-  "Park",
-  "Church",
-  "Public Market",
-  "Major Highway",
-  "Public Transportation Stops",
-  "Banks and ATMs",
-  "Restaurants/Food Centers",
-  "Convenience Store/ Supermarket",
-  "Sports Complex/Gymnasium",
-  "Government Service Center",
-  "Tourist Spots/Nature Parks",
-  "Library",
-  "Daycare Center"
+    "park",
+    "church",
+    "public market",
+    "major highway",
+    "public transport stops",
+    "banks and atms",
+    "restaurant/food centers",
+    "convenience store/supermarket",
+    "school/university",
+    "hospital/health care"
 ];
 
 const barangayList = [
@@ -87,12 +79,13 @@ const PropertyListingPage = () => {
 
     const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='' }) => {
         const s = filters.searchTerm.toLowerCase().trim();
+        // Only allow filtering by landmark values that are in the dropdown list (case-insensitive)
+        const allowedLandmarks = landmarkOptions;
+        const normalizedLandmark = allowedLandmarks.find(l => l === (landmarks || '').toLowerCase().trim());
         const landmarkMatch = filters.landmarks.length > 0
-            ? filters.landmarks.some(l => (landmarks || '').toLowerCase().includes(l.toLowerCase()))
+            ? filters.landmarks.some(l => (normalizedLandmark === l.toLowerCase().trim()))
             : true;
-        const customLandmarkMatch = filters.customLandmark.trim() !== ''
-            ? (landmarks || '').toLowerCase().includes(filters.customLandmark.trim().toLowerCase())
-            : true;
+        // Custom landmark filter is now ignored to enforce dropdown-only
         return (
             (s ? title.toLowerCase().includes(s) || barangay.toLowerCase().includes(s) : true) &&
             (filters.category ? category===filters.category : true) &&
@@ -102,7 +95,7 @@ const PropertyListingPage = () => {
             (filters.petFriendly ? petFriendly === true : true) &&
             (filters.occupancy ? occupancy >= Number(filters.occupancy) : true) &&
             (filters.parking ? parking === true : true) &&
-            landmarkMatch && customLandmarkMatch &&
+            landmarkMatch &&
             (filters.minRooms ? numberOfRooms >= Number(filters.minRooms) : true) &&
             (filters.maxRooms ? numberOfRooms <= Number(filters.maxRooms) : true) &&
             (filters.minArea ? areaSqm >= Number(filters.minArea) : true) &&
@@ -251,7 +244,19 @@ const PropertyListingPage = () => {
                                                                             placeholder="Type a landmark..."
                                                                             value={filters.customLandmark}
                                                                             onChange={e => updateFilter('customLandmark', e.target.value)}
+                                                                            list="custom-landmark-list"
+                                                                            autoComplete="off"
                                                                         />
+                                                                        <datalist id="custom-landmark-list">
+                                                                            {landmarkOptions.filter(l =>
+                                                                                filters.customLandmark.length === 0 ||
+                                                                                l.includes(filters.customLandmark.toLowerCase())
+                                                                            ).map(l => (
+                                                                                <option key={l} value={l}>
+                                                                                    {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                                                                </option>
+                                                                            ))}
+                                                                        </datalist>
                                                                     </div>
                                                                 </div>
 
@@ -312,6 +317,15 @@ const PropertyListingPage = () => {
                             <div className="property-details">
                                 <h3>{title}</h3>
                                 {createdAt && <span className="property-date" title={new Date(createdAt).toLocaleString()}>{formatCreatedAt(createdAt)}</span>}
+                                                                {(typeof p.availableUnits !== 'undefined' || typeof p.totalUnits !== 'undefined') && (
+                                                                    <div className="card-units-pill-row">
+                                                                        <div className="card-units-pill">
+                                                                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'5px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
+                                                                            {p.availableUnits !== undefined ? p.availableUnits : '0'}{p.totalUnits ? ` / ${p.totalUnits}` : ''}
+                                                                        </div>
+                                                                        <span className="card-units-label">Available units</span>
+                                                                    </div>
+                                                                )}
                                 {landlordProfile && (
                                     <div className="landlord-mini" onClick={(e)=>{e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);}} role="button" tabIndex={0} onKeyDown={(e)=>{if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);} }}>
                                         <img src={landlordProfile.profilePic || '/default-avatar.png'} alt={landlordProfile.fullName} className="landlord-avatar" loading="lazy" />

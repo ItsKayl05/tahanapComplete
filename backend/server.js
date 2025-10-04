@@ -7,6 +7,7 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import propertyRoutes from './routes/propertyRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import applicationRoutes from './routes/applicationRoutes.js';
  
 import adminRoutes from "./routes/adminRoutes.js";
 import favoriteRoutes from './routes/favoriteRoutes.js';
@@ -139,6 +140,7 @@ app.use("/api/properties", propertyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/applications", applicationRoutes);
  
 
 // Health check route

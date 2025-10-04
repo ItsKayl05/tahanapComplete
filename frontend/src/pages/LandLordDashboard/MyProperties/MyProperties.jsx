@@ -7,6 +7,7 @@ import Sidebar from "../Sidebar/Sidebar";
 import '../landlord-theme.css';
 import './MyProperties.css';
 import { fetchMyProperties, deleteProperty } from '../../../services/landlord/LandlordPropertyService';
+import { setAvailability } from '../../../services/landlord/LandlordPropertyService';
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog';
 import { buildUpload } from '../../../services/apiConfig';
 
@@ -182,9 +183,30 @@ const MyProperties = () => {
                                 <div className="my-properties-actions unified">
                                     <button onClick={() => handleView(property._id)} className="ll-btn outline small">View</button>
                                     <button onClick={() => handleEdit(property._id)} className="ll-btn warn small">Edit</button>
+                                    <button onClick={() => navigate(`/rental-requests/${property._id}`)} className="ll-btn primary small">Rental Requests</button>
                                     <button onClick={() => requestDelete(property._id)} disabled={deletingId === property._id} className="ll-btn danger small">
                                         {deletingId === property._id ? 'Deleting...' : 'Delete'}
                                     </button>
+                                        <button onClick={async (e)=>{
+                                            e.stopPropagation();
+                                            try {
+                                                const newTotalStr = prompt('Enter new total units (leave blank to keep current):', String(property.totalUnits || 1));
+                                                if (newTotalStr === null) return; // cancelled
+                                                const newAvailStr = prompt('Enter available units (leave blank to auto-clamp):', String(property.availableUnits || property.totalUnits || 0));
+                                                if (newAvailStr === null) return;
+                                                const payload = {};
+                                                if (newTotalStr.trim() !== '') payload.totalUnits = Number(newTotalStr);
+                                                if (newAvailStr.trim() !== '') payload.availableUnits = Number(newAvailStr);
+                                                const token = localStorage.getItem('user_token');
+                                                if(!token){ toast.error('Not authenticated'); return; }
+                                                const res = await setAvailability(property._id, payload);
+                                                // update local state
+                                                setProperties(prev => prev.map(p => p._id === property._id ? { ...p, ...res.property } : p));
+                                                toast.success('Availability updated');
+                                            } catch (err) {
+                                                toast.error(err.message || 'Failed to update availability');
+                                            }
+                                        }} className="ll-btn neutral small">Adjust Units</button>
                                 </div>
                             </div>
                         </div>

@@ -475,7 +475,7 @@ export const uploadProfilePic = upload.single('profilePic'); // Use the multer m
 // ✅ Update Profile (Including Profile Picture)
 export const updateProfile = async (req, res) => {
     try {
-        const { fullName, address, contactNumber, email, occupation, showEmailPublicly } = req.body;
+        const { fullName, address, barangay, contactNumber, email, occupation, showEmailPublicly } = req.body;
 
         const user = await User.findById(req.user._id);
 
@@ -486,6 +486,7 @@ export const updateProfile = async (req, res) => {
         // Update user details
         user.fullName = fullName || user.fullName;
         user.address = address || user.address;
+        user.barangay = barangay || user.barangay;
         user.contactNumber = contactNumber || user.contactNumber;
         user.email = email || user.email;
         user.occupation = occupation || user.occupation;
@@ -493,8 +494,18 @@ export const updateProfile = async (req, res) => {
             user.showEmailPublicly = showEmailPublicly === 'true' || showEmailPublicly === true;
         }
 
-        // If profile picture is uploaded, update the user's profilePic field
+        // If profile picture is uploaded, delete the old file and update the user's profilePic field
         if (req.file) {
+            if (user.profilePic && user.profilePic !== req.file.filename) {
+                const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
+                console.log('[ProfilePic Delete] Attempting to delete:', oldPath);
+                try {
+                    await fs.promises.unlink(oldPath);
+                    console.log('[ProfilePic Delete] Deleted:', oldPath);
+                } catch (err) {
+                    console.error('[ProfilePic Delete] Failed to delete', oldPath, err.message);
+                }
+            }
             user.profilePic = req.file.filename; // Store only the filename
         }
 
@@ -506,6 +517,7 @@ export const updateProfile = async (req, res) => {
                 username: user.username,
                 fullName: user.fullName,
                 address: user.address,
+                barangay: user.barangay,
                 contactNumber: user.contactNumber,
                 email: user.email,
                 occupation: user.occupation,

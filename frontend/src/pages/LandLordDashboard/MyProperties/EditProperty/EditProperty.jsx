@@ -34,7 +34,21 @@ const barangays = [
     "Tungkong Mangga"
 ];
 
+const LANDMARKS = [
+                    "park",
+                    "church",
+                    "public market",
+                    "major highway",
+                    "public transport stops",
+                    "banks and atms",
+                    "restaurant/food centers",
+                    "convenience store/supermarket",
+                    "school/university",
+                    "hospital/health care"
+];
+
 const EditProperty = () => {
+
     // Store original lat/lng for reset
     const [originalLatLng, setOriginalLatLng] = useState({ lat: "", lng: "" });
     const { propertyId } = useParams();
@@ -98,6 +112,8 @@ const EditProperty = () => {
                     allowedPets: data.allowedPets,
                     occupancy: data.occupancy,
                     availabilityStatus: data.availabilityStatus ?? 'Available',
+                    totalUnits: data.totalUnits ?? 1,
+                    availableUnits: data.availableUnits ?? (data.totalUnits ?? 1),
                     parking: data.parking,
                     rules: data.rules,
                     landmarks: data.landmarks,
@@ -118,6 +134,8 @@ const EditProperty = () => {
                                 if (data.panorama360) {
                                     setExistingPanorama(data.panorama360.startsWith('http') ? data.panorama360 : buildUpload(data.panorama360));
                                 }
+                                                // ensure availability fields are set
+                                setFormData(f => ({ ...f, totalUnits: data.totalUnits ?? 1, availableUnits: data.availableUnits ?? (data.totalUnits ?? 1) }));
                                 setLoading(false);
             } catch (error) {
                 toast.error(error.message || "Error fetching property.");
@@ -139,9 +157,9 @@ const EditProperty = () => {
             const file = e.target.files?.[0];
             if (!file) return;
             const validType = file.type.startsWith('image/');
-            const sizeOk = file.size <= 8*1024*1024;
+            const sizeOk = file.size <= 10*1024*1024;
             if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
-            if (!sizeOk) { toast.error('Panoramic image exceeds 8MB limit.'); return; }
+            if (!sizeOk) { toast.error('Panoramic file too large (max 10MB).'); return; }
             if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
             setPanorama(file);
             setPanoramaPreview(URL.createObjectURL(file));
@@ -155,12 +173,18 @@ const EditProperty = () => {
         };
 
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData({
-            ...formData,
-            [name]: type === "checkbox" ? checked : value,
-        });
-        if (name === "address") setManualPin(false); // If address changes, suggest auto pin
+                const { name, value, type, checked } = e.target;
+                let newValue = value;
+                // Normalize landmark value to match filter (trim, exact string)
+                if (name === 'landmarks') {
+                    const found = LANDMARKS.find(l => l === value);
+                    newValue = found || value;
+                }
+                setFormData({
+                        ...formData,
+                        [name]: type === "checkbox" ? checked : newValue,
+                });
+                if (name === "address") setManualPin(false); // If address changes, suggest auto pin
     };
 
     const handleImageChange = (e) => {
@@ -176,9 +200,9 @@ const EditProperty = () => {
         const accepted = files.slice(0, availableSlots).filter(file => {
             const exists = newImages.some(f => f.name === file.name);
             const validType = file.type.startsWith('image/');
-            const sizeOk = file.size <= 4 * 1024 * 1024; // 4MB
+            const sizeOk = file.size <= 10 * 1024 * 1024; // 10MB
             if (!validType) toast.warn(`${file.name} skipped (not an image).`);
-            if (!sizeOk) toast.warn(`${file.name} skipped (>4MB).`);
+            if (!sizeOk) toast.warn(`${file.name} skipped (image file too large, max 10MB).`);
             if (exists) toast.warn(`${file.name} already added.`);
             return !exists && validType && sizeOk;
         });
@@ -209,7 +233,14 @@ const EditProperty = () => {
             setSubmitting(true);
                         const formDataToSend = new FormData();
                         Object.entries(formData).forEach(([key, value]) => {
-                            if (value !== undefined && value !== null && value !== "") {
+                            if (key === 'landmarks') {
+                                const v = (value || '').toLowerCase().trim();
+                                if (LANDMARKS.includes(v)) {
+                                    formDataToSend.append('landmarks', v);
+                                } else {
+                                    formDataToSend.append('landmarks', '');
+                                }
+                            } else if (value !== undefined && value !== null && value !== "") {
                                 formDataToSend.append(key, value);
                             }
                         });
@@ -353,6 +384,16 @@ const EditProperty = () => {
                                 <div className="field-hint small">Choose the current availability for this listing.</div>
                             </div>
                             <div className="field-group">
+                                <label className="required">Total Units</label>
+                                <input className="ll-field" type="number" min={1} name="totalUnits" value={formData.totalUnits || 1} onChange={handleChange} />
+                                <div className="field-hint small">Total rentable units for this listing.</div>
+                            </div>
+                            <div className="field-group">
+                                <label>Available Units</label>
+                                <input className="ll-field" type="number" min={0} name="availableUnits" value={formData.availableUnits || 0} onChange={handleChange} />
+                                <div className="field-hint small">Current available units (will be clamped to Total Units).</div>
+                            </div>
+                            <div className="field-group">
                                 <label>Property Size (sqm)</label>
                                 <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" />
                             </div>
@@ -369,10 +410,15 @@ const EditProperty = () => {
                             <div className="field-group toggle-field">
                                 <label className="checkbox-label"><input type="checkbox" name="parking" checked={formData.parking} onChange={handleChange} /> Parking Available</label>
                             </div>
-                            <div className="field-group full">
-                                <label>Nearby Landmarks</label>
-                                <input className="ll-field" name="landmarks" value={formData.landmarks} onChange={handleChange} placeholder="School, mall, hospital etc." />
-                            </div>
+                                                        <div className="field-group full">
+                                                                <label>Nearby Landmark</label>
+                                                                                                                                                                <select className="ll-field" name="landmarks" value={formData.landmarks} onChange={handleChange} required>
+                                                                                                                                                                    <option value="">Select Landmark</option>
+                                                                                                                                                                    {LANDMARKS.map(l => (
+                                                                                                                                                                        <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
+                                                                                                                                                                    ))}
+                                                                                                                                                                </select>
+                                                        </div>
                             <div className="field-group full">
                                 <label>House Rules</label>
                                 <textarea className="ll-field" name="rules" value={formData.rules} onChange={handleChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={3} />
@@ -382,13 +428,12 @@ const EditProperty = () => {
                                                 {/* 360° Panoramic Image Section */}
                                                 <div className="panorama-section" style={{marginTop:'32px'}}>
                                                     <h3 className="section-title">360° Panoramic Image</h3>
-                                                    <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 8MB, equirectangular projection).</p>
+                                                    <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
                                                     {(panoramaPreview || existingPanorama) ? (
                                                         <div style={{marginBottom:'12px'}}>
                                                             <PhotoDomeViewer imageUrl={panoramaPreview || existingPanorama} mode="MONOSCOPIC" />
                                                             <div style={{marginTop:'8px', display:'flex', gap:'8px'}}>
                                                                 <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove</button>
-                                                                <button type="button" className="ll-btn tiny" onClick={()=>document.getElementById('panorama-input').click()}>Replace</button>
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -400,7 +445,7 @@ const EditProperty = () => {
                                                 </div>
                                                 <div className="images-section">
                             <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
-                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 4MB each).</p>
+                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
                             <div className="current-images-grid">
                                 {images.length ? images.map((img, i) => {
                                     const url = img.startsWith('http') ? img : buildUpload(img);
@@ -415,7 +460,7 @@ const EditProperty = () => {
                             <div className="new-upload-block">
                                 <label className="file-drop-modern">
                                     <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-                                    <span>Add / Replace Images</span>
+                                    <span>Add Images</span>
                                 </label>
                                 {newImages.length > 0 && (
                                     <div className="new-images-grid">
@@ -431,7 +476,7 @@ const EditProperty = () => {
                         </div>
                         <div className="video-section">
                             <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})</span></h3>
-                            <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 10MB). Uploading a new one replaces the existing video.</p>
+                            <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
                             {!videoPreview && !videoFile && !removeVideo && (
                                 <label className="file-drop-modern">
                                     <input type="file" accept="video/mp4,video/webm,video/ogg" onChange={(e)=>{
@@ -439,12 +484,12 @@ const EditProperty = () => {
                                         if (!file) return;
                                         const allowed = ['video/mp4','video/webm','video/ogg'];
                                         if (!allowed.includes(file.type)) { toast.error('Invalid video format.'); return; }
-                                        if (file.size > 10*1024*1024) { toast.error('Video exceeds 10MB.'); return; }
+                                        if (file.size > 50*1024*1024) { toast.error('Video file too large (max 50MB).'); return; }
                                         setVideoFile(file);
                                         setVideoPreview(URL.createObjectURL(file));
                                         setRemoveVideo(false);
                                     }} />
-                                    <span>Select / Replace Video</span>
+                                    <span>Select Video</span>
                                 </label>
                             )}
                             {(videoPreview || videoFile) && !removeVideo && (
@@ -455,9 +500,6 @@ const EditProperty = () => {
                                             if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
                                             setVideoFile(null); setVideoPreview(null); setRemoveVideo(true);
                                         }}>Remove Video</button>
-                                        <button type="button" className="ll-btn tiny" onClick={()=>{
-                                            document.querySelector('input[type="file"][accept^="video"]').click();
-                                        }}>Change</button>
                                     </div>
                                 </div>
                             )}

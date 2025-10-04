@@ -3,21 +3,25 @@ import ChatBox from '../../../components/ChatBox/ChatBox';
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
+
 import images from "../../../assets/assets";
 import './TenantDashboard.css';
 import '../../LandLordDashboard/landlord-theme.css';
 import { AuthContext } from "../../../context/AuthContext";
 import TenantSidebar from "../TenantSidebar/TenantSidebar";
 import { buildApi, buildUpload } from '../../../services/apiConfig';
+import { barangayList } from '../../../utils/barangayList';
 
 const TenantDashboard = () => {
     const { logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const [role, setRole] = useState("");
+    // barangayList is now imported from shared utils/barangayList.js
     const [userData, setUserData] = useState({
         username: "",
         fullName: "",
         address: "",
+        barangay: "",
         contactNumber: "",
         email: "",
         profilePic: ""
@@ -111,6 +115,7 @@ const TenantDashboard = () => {
                         username: data.username,
                         fullName: data.fullName || "",
                         address: data.address || "",
+                        barangay: data.barangay || "",
                         contactNumber: data.contactNumber || "",
                         email: data.email || "",
                         profilePic: data.profilePic ? buildUpload(`/profiles/${data.profilePic}`) : images.avatar,
@@ -192,6 +197,7 @@ const TenantDashboard = () => {
         const formData = new FormData();
     formData.append("fullName", userData.fullName);
     formData.append("address", userData.address);
+    formData.append("barangay", userData.barangay);
     formData.append("contactNumber", userData.contactNumber);
     formData.append("email", userData.email);
 
@@ -281,6 +287,13 @@ const TenantDashboard = () => {
                                         <div className="ll-stack ll-gap-sm">
                                             <label className="ll-label" htmlFor="address">Address</label>
                                             <input className="ll-field" id="address" value={userData.address} onChange={e=>setUserData(u=>({...u, address:e.target.value}))} required />
+                                        </div>
+                                        <div className="ll-stack ll-gap-sm">
+                                            <label className="ll-label" htmlFor="barangay">Barangay</label>
+                                            <select className="ll-field" id="barangay" value={userData.barangay} onChange={e=>setUserData(u=>({...u, barangay:e.target.value}))} required disabled={!!userData.barangay}>
+                                                <option value="">Select Barangay</option>
+                                                {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
+                                            </select>
                                         </div>
                                         <div className="ll-stack ll-gap-sm">
                                             <label className="ll-label" htmlFor="contactNumber">Contact Number</label>

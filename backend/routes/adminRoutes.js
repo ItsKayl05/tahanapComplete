@@ -1,8 +1,13 @@
+
 import express from 'express';
 import User from '../models/User.js'; // Assuming User model is defined
 import Property from '../models/Property.js'; // Assuming Property model is defined
+import { getUserBarangayStats } from '../controllers/adminController.js';
 
 const router = express.Router();
+
+// Route to get per-barangay user stats (landlords and tenants)
+router.get('/user-barangay-stats', getUserBarangayStats);
 
 // Route to fetch total users
 router.get('/total-users', async (req, res) => {

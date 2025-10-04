@@ -28,7 +28,12 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: false,
         default: '',
-    },    
+    },
+    barangay: {
+        type: String,
+        required: false,
+        default: '',
+    },
     contactNumber: { 
         type: String, 
         required: true, 

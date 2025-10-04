@@ -1,3 +1,32 @@
+/* Barangay stats tables */
+.barangay-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #f8fafc;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px 0 rgba(59,130,246,0.07);
+  margin-bottom: 1.5rem;
+}
+.barangay-table th, .barangay-table td {
+  padding: 0.7rem 1.1rem;
+  text-align: left;
+}
+.barangay-table th {
+  background: #e0e7ef;
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 700;
+  border-bottom: 2px solid #cbd5e1;
+}
+.barangay-table td {
+  color: #475569;
+  font-size: 0.98rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.barangay-table tr:last-child td {
+  border-bottom: none;
+}
 /* Dashboard Theme Revamp */
 :root {
   --ad-gap: clamp(1rem,1.8vw,2rem);

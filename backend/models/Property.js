@@ -33,7 +33,7 @@ const propertySchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ["Apartment", "Dorm", "House", "Studio"], // Optional: Restrict category options
+    enum: ["Apartment", "Dorm", "House", "Condominium", "Studio"], // Optional: Restrict category options
   },
   numberOfRooms: {
     type: Number,
@@ -44,6 +44,18 @@ const propertySchema = new mongoose.Schema({
     type: Number,
     min: 0,
     default: 0,
+  },
+  // Unit counts for multi-unit properties (e.g., dorms, apartments with multiple rentable units)
+  totalUnits: {
+    type: Number,
+    min: 0,
+    default: 1,
+  },
+  // Number of currently available units for rent. Kept in sync with totalUnits when creating/updating.
+  availableUnits: {
+    type: Number,
+    min: 0,
+    default: 1,
   },
   petFriendly: {
     type: Boolean,

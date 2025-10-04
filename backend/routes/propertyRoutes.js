@@ -6,7 +6,8 @@ import {
     updateProperty,
     deleteProperty,
     getPropertiesByLandlord,
-    setPropertyStatus
+    setPropertyStatus,
+    setPropertyAvailability
 } from "../controllers/propertyController.js";
 import { protect, roleCheck } from "../middleware/authMiddleware.js";
 
@@ -20,6 +21,8 @@ router.get("/:id", getProperty); // Get a single property by ID
 
 router.put("/:id", protect, updateProperty); // Update a property (protected)
 router.delete("/:id", protect, deleteProperty); // Delete a property (protected)
+// Landlord can adjust availability counts or status
+router.put("/:id/availability", protect, setPropertyAvailability);
 
 // 🔒 Admin moderation: update property status
 router.put("/:id/status", protect, roleCheck('admin'), setPropertyStatus);

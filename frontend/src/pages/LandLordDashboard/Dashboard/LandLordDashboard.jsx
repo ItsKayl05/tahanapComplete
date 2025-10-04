@@ -3,18 +3,21 @@ import ChatBox from '../../../components/ChatBox/ChatBox';
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
 import images from "../../../assets/assets";
 import "./LandLordDashboard.css";
 import { AuthContext } from "../../../context/AuthContext";
 import Sidebar from "../Sidebar/Sidebar";
 import { authFetch } from "../../../utils/authFetch";
 import { buildApi, buildUpload } from '../../../services/apiConfig';
+import { barangayList } from '../../../utils/barangayList';
 
 const LandlordDashboard = () => {
     const { logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const [role, setRole] = useState("");
-    const [userData, setUserData] = useState({ username:"", fullName:"", address:"", contactNumber:"", email:"", profilePic:"", showEmailPublicly:false });
+    // barangayList is now imported from shared utils/barangayList.js
+    const [userData, setUserData] = useState({ username:"", fullName:"", address:"", barangay:"", contactNumber:"", email:"", profilePic:"", showEmailPublicly:false });
     const [passwords, setPasswords] = useState({ oldPassword:"", newPassword:"" });
     const [showPasswords, setShowPasswords] = useState(false);
     const [isUpdated, setIsUpdated] = useState(false);
@@ -83,6 +86,7 @@ const LandlordDashboard = () => {
                     username: data.username,
                     fullName: data.fullName || '',
                     address: data.address || '',
+                    barangay: data.barangay || '',
                     contactNumber: data.contactNumber || '',
                     email: data.email || '',
                     profilePic: data.profilePic ? buildUpload(`/profiles/${data.profilePic}`) : images.avatar,
@@ -135,6 +139,7 @@ const LandlordDashboard = () => {
         const formData = new FormData();
     formData.append('fullName', userData.fullName);
     formData.append('address', userData.address);
+    formData.append('barangay', userData.barangay);
     formData.append('contactNumber', userData.contactNumber);
     formData.append('showEmailPublicly', userData.showEmailPublicly);
         if(userData.profilePic instanceof File) formData.append('profilePic', userData.profilePic);
@@ -196,6 +201,13 @@ const LandlordDashboard = () => {
                                     <div className="field-group">
                                         <label htmlFor="address">Address<span className="req">*</span></label>
                                         <input id="address" value={userData.address} onChange={e=>setUserData(u=>({...u, address:e.target.value}))} required autoComplete="street-address" />
+                                    </div>
+                                    <div className="field-group">
+                                        <label htmlFor="barangay">Barangay<span className="req">*</span></label>
+                                        <select id="barangay" value={userData.barangay} onChange={e=>setUserData(u=>({...u, barangay:e.target.value}))} required>
+                                            <option value="">Select Barangay</option>
+                                            {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
+                                        </select>
                                     </div>
                                     <div className="field-group">
                                         <label htmlFor="contactNumber">Contact Number<span className="req">*</span></label>

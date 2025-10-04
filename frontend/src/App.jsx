@@ -1,3 +1,4 @@
+import MyRentals from "./pages/TenantDashboard/MyRentals/MyRentals";
 import MapPage from "./pages/MapPage/MapPage";
 // frontend/src/App.jsx
 import React from "react";
@@ -20,13 +21,14 @@ import PrivacyPolicy from './pages/Legal/PrivacyPolicy';
 import ContactUs from './pages/Legal/ContactUs';
 import LandlordPublicProfile from './pages/LandlordPublicProfile/LandlordPublicProfile';
 import TenantMessages from './pages/TenantDashboard/Messages/Messages';
-import LandlordMessages from './pages/LandlordDashboard/Messages/Messages';
+import LandlordMessages from './pages/LandLordDashboard/Messages/Messages';
 
 // Landlord Dashboard Pages
-import LandlordDashboard from "./pages/LandlordDashboard/Dashboard/LandLordDashboard";
+import LandLordDashboard from "./pages/LandLordDashboard/Dashboard/LandLordDashboard";
 import AddProperties from "./pages/LandLordDashboard/AddProperties/AddProperties";
 import MyProperties from "./pages/LandLordDashboard/MyProperties/MyProperties";
 import EditProperty from "./pages/LandLordDashboard/MyProperties/EditProperty/EditProperty";
+import RentalRequests from "./pages/LandLordDashboard/RentalRequests/RentalRequests";
 import ViewProperty from "./pages/LandLordDashboard/MyProperties/ViewProperty/ViewProperty";
 
 // Tenant Dashboard
@@ -50,6 +52,14 @@ const AppContent = () => {
             <Navbar />
 
             <Routes>
+                <Route
+                    path="/my-rental"
+                    element={
+                        <ProtectedRoute allowedRole="tenant">
+                            <MyRentals />
+                        </ProtectedRoute>
+                    }
+                />
                 <Route
                     path="/favorites"
                     element={
@@ -84,7 +94,7 @@ const AppContent = () => {
                     path="/landlord-profile"
                     element={
                         <ProtectedRoute allowedRole="landlord">
-                            <LandlordDashboard />
+                            <LandLordDashboard />
                         </ProtectedRoute>
                     }
                 />
@@ -114,7 +124,12 @@ const AppContent = () => {
                 />
                 <Route path="/property/:propertyId" element={<ViewProperty />} />
                 <Route path="/map" element={<MapPage />} />
-                    <Route path="/property-map" element={<PropertyMap />} /> // Added route for PropertyMap
+                <Route path="/rental-requests/:propertyId" element={
+                    <ProtectedRoute allowedRole="landlord">
+                        <RentalRequests />
+                    </ProtectedRoute>
+                } />
+                    <Route path="/property-map" element={<PropertyMap />} />
 
                                 <Route
                                     path="/tenant/messages"

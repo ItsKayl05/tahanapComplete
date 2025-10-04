@@ -1,3 +1,29 @@
+.improved-units {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 10px 0;
+}
+.units-pill {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(90deg,#38bdf8 0%,#60aaff 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.08rem;
+  border-radius: 999px;
+  padding: 6px 18px 6px 12px;
+  box-shadow: 0 2px 12px 0 rgba(56,189,248,0.13);
+  letter-spacing: 0.04em;
+  min-width: 60px;
+}
+.units-label {
+  color: #38bdf8;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 6px rgba(56,189,248,0.08);
+}
 .panorama-section .section-title {
   font-size:1.15rem;
   font-weight:600;
@@ -76,6 +102,36 @@
   .description-section h3 { margin:0 0 .6rem; font-size:1.05rem; font-weight:600; letter-spacing:.5px; background:linear-gradient(90deg,#38bdf8,#6366f1,#3b82f6); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .description-section p { margin:0; font-size:.72rem; line-height:1.55; letter-spacing:.05em; color:#cbd5e1; }
   .description-section p { margin:0; font-size:.72rem; line-height:1.55; letter-spacing:.05em; color:#f3f4f6; }
+
+  /* Apply Button */
+  .apply-btn {
+    width: 100%;
+    padding: .95rem 1.25rem 1rem;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    background: linear-gradient(135deg,#10b981,#059669);
+    color: #fff;
+    box-shadow: 0 10px 34px -12px rgba(16,185,129,.7);
+    transition: transform .55s, box-shadow .55s;
+    margin-bottom: 10px;
+  }
+  
+  .apply-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 48px -16px rgba(16,185,129,.85);
+  }
+  
+  .apply-btn:disabled {
+    background: #64748b;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
 
   /* Contact */
   .contact-btn { margin-top:.25rem; width:100%; padding:.95rem 1.25rem 1rem; font-size:.7rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; border:none; border-radius:16px; cursor:pointer; background:linear-gradient(135deg,#6366f1,#3b82f6); color:#fff; box-shadow:0 10px 34px -12px rgba(99,102,241,.7); transition:transform .55s, box-shadow .55s, filter .55s; }
@@ -208,6 +264,9 @@
   font-size: 0.9rem;
   font-weight: 600;
 }
+
+.availability-counter { margin-top: 8px; display:flex; align-items:center; gap:8px; color:#e6eef6; font-weight:600; }
+.availability-counter .units { color:#cfe9d6; font-weight:700; margin-left:6px; }
 
 /* Property Features */
 .property-features {

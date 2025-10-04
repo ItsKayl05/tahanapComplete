@@ -19,16 +19,18 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max per file (covers video requirement)
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max per file (video)
     fileFilter: (req, file, cb) => {
         if (file.fieldname === 'images' || file.fieldname === 'panorama360') {
-            if (file.mimetype.startsWith('image/')) return cb(null, true);
-            return cb(new Error('Only image files allowed in ' + file.fieldname + ' field'));
+            if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files allowed in ' + file.fieldname + ' field'));
+            if (file.size > 10 * 1024 * 1024) return cb(new Error('Image or panorama file too large (max 10MB)'));
+            return cb(null, true);
         }
         if (file.fieldname === 'video') {
             const allowedVideo = ['video/mp4', 'video/webm', 'video/ogg'];
-            if (allowedVideo.includes(file.mimetype)) return cb(null, true);
-            return cb(new Error('Invalid video format. Allowed: mp4, webm, ogg'));
+            if (!allowedVideo.includes(file.mimetype)) return cb(new Error('Invalid video format. Allowed: mp4, webm, ogg'));
+            if (file.size > 50 * 1024 * 1024) return cb(new Error('Video file too large (max 50MB)'));
+            return cb(null, true);
         }
         cb(new Error('Unexpected field: ' + file.fieldname));
     }
@@ -49,19 +51,32 @@ const num = (v, def = 0) => {
 };
 
 // Helper function to delete images
+// Accepts filenames, relative paths (e.g. '/uploads/properties/filename') or full URLs
 const deleteImages = async (imagesToDelete) => {
     try {
         for (const image of imagesToDelete) {
-            const imagePath = path.join(process.cwd(), "uploads/properties", image);
             try {
-                await fs.unlink(imagePath); // Delete the image file
-                console.log(`Deleted image: ${imagePath}`);
-            } catch (err) {
-                console.error(`Failed to delete image ${imagePath}: ${err.message}`);
+                if (!image) continue;
+                // Strip any querystring that may be appended
+                const clean = image.split('?')[0];
+                // Extract the basename (filename) whether input is URL, relative path, or just filename
+                const filename = path.basename(clean);
+                if (!filename) continue;
+                const imagePath = path.join(process.cwd(), 'uploads', 'properties', filename);
+                console.log('[Property Delete] Attempting to delete:', imagePath);
+                try {
+                    await fs.unlink(imagePath); // Delete the image file
+                    console.log('[Property Delete] Deleted:', imagePath);
+                } catch (err) {
+                    // Log but don't throw; file may not exist or already removed
+                    console.error('[Property Delete] Failed to delete', imagePath, err.message);
+                }
+            } catch (innerErr) {
+                console.error('[Property Delete] Error processing image for deletion:', innerErr);
             }
         }
     } catch (err) {
-        console.error("Error deleting images:", err);
+        console.error('[Property Delete] Error deleting images:', err);
     }
 };
 
@@ -113,6 +128,10 @@ export const addProperty = async (req, res) => {
             // ensure availabilityStatus defaults to 'Available' unless explicitly set by landlord to a valid option
             const availabilityStatus = (req.body.availabilityStatus && allowedAvailability.includes(req.body.availabilityStatus)) ? req.body.availabilityStatus : 'Available';
 
+            // Ensure numeric unit counts
+            const totalUnitsNum = num(req.body.totalUnits, 1);
+            const availableUnitsInit = typeof req.body.availableUnits !== 'undefined' ? num(req.body.availableUnits, totalUnitsNum) : totalUnitsNum;
+
             const newProperty = new Property({
                 landlord,
                 title,
@@ -135,7 +154,9 @@ export const addProperty = async (req, res) => {
                 latitude: latitude ? Number(latitude) : null,
                 longitude: longitude ? Number(longitude) : null,
                 status: 'approved', // auto-approved to avoid admin bottleneck
-                availabilityStatus
+                availabilityStatus,
+                totalUnits: totalUnitsNum,
+                availableUnits: availableUnitsInit
             });
 
             await newProperty.save();
@@ -261,8 +282,8 @@ export const updateProperty = async (req, res) => {
             console.log("UpdateProperty req.body:", req.body);
             console.log("UpdateProperty req.files:", req.files);
             let updatedPanorama = property.panorama360 || '';
+            // If a new panorama is uploaded, delete the old one
             if (req.files?.panorama360 && req.files.panorama360.length) {
-                // delete previous panorama if exists
                 if (updatedPanorama) {
                     const prevName = updatedPanorama.split('/').pop();
                     const prevPath = path.join(process.cwd(), 'uploads/properties', prevName);
@@ -336,6 +357,7 @@ export const updateProperty = async (req, res) => {
                 availabilityStatus = req.body.availabilityStatus;
             }
 
+            // Handle totalUnits / availableUnits adjustments
             const updatedData = {
                 ...req.body,
                 ...(availabilityStatus ? { availabilityStatus } : {}),
@@ -349,6 +371,36 @@ export const updateProperty = async (req, res) => {
                 video: updatedVideo,
                 panorama360: updatedPanorama
             };
+
+            // If landlord provided totalUnits, reconcile availableUnits
+            if (req.body.totalUnits !== undefined) {
+                const newTotal = num(req.body.totalUnits, property.totalUnits || 1);
+                // compute delta
+                const delta = newTotal - (property.totalUnits || 0);
+                let newAvailable = property.availableUnits || 0;
+                if (delta > 0) {
+                    // add newly created units to available pool
+                    newAvailable = newAvailable + delta;
+                } else if (delta < 0) {
+                    // If total decreased, reduce available units but never below 0
+                    newAvailable = Math.max(0, newAvailable + delta);
+                }
+                // If landlord explicitly sets availableUnits, honor but clamp
+                if (req.body.availableUnits !== undefined) {
+                    newAvailable = Math.min(newTotal, Math.max(0, num(req.body.availableUnits, newAvailable)));
+                }
+                updatedData.totalUnits = newTotal;
+                updatedData.availableUnits = newAvailable;
+                // Keep availabilityStatus consistent with availableUnits
+                if (newAvailable <= 0) updatedData.availabilityStatus = 'Fully Occupied';
+                else updatedData.availabilityStatus = updatedData.availabilityStatus || 'Available';
+            } else if (req.body.availableUnits !== undefined) {
+                // If only availableUnits was provided, clamp to existing totalUnits
+                const clamped = Math.min(property.totalUnits || 0, Math.max(0, num(req.body.availableUnits, property.availableUnits || 0)));
+                updatedData.availableUnits = clamped;
+                if (clamped <= 0) updatedData.availabilityStatus = 'Fully Occupied';
+                else updatedData.availabilityStatus = updatedData.availabilityStatus || 'Available';
+            }
 
             const updatedProperty = await Property.findByIdAndUpdate(req.params.id, updatedData, { new: true });
 
@@ -396,11 +448,27 @@ export const deleteProperty = async (req, res) => {
         }
 
         // Remove images asynchronously
+
         await deleteImages(property.images);
         // Remove video if exists
         if (property.video) {
             const videoPath = path.join(process.cwd(), 'uploads/properties', property.video.split('/').pop());
-            fs.unlink(videoPath).catch(()=>{});
+            console.log('[Property Delete] Attempting to delete video:', videoPath);
+            fs.unlink(videoPath).then(() => {
+                console.log('[Property Delete] Deleted video:', videoPath);
+            }).catch((err) => {
+                console.error('[Property Delete] Failed to delete video', videoPath, err.message);
+            });
+        }
+        // Remove panorama360 if exists
+        if (property.panorama360) {
+            const panoPath = path.join(process.cwd(), 'uploads/properties', property.panorama360.split('/').pop());
+            console.log('[Property Delete] Attempting to delete panorama:', panoPath);
+            fs.unlink(panoPath).then(() => {
+                console.log('[Property Delete] Deleted panorama:', panoPath);
+            }).catch((err) => {
+                console.error('[Property Delete] Failed to delete panorama', panoPath, err.message);
+            });
         }
 
         await property.deleteOne();
@@ -409,5 +477,54 @@ export const deleteProperty = async (req, res) => {
     } catch (error) {
         console.error("Delete Property Error:", error);
         res.status(500).json({ error: "Error deleting property" });
+    }
+};
+
+// Landlord: adjust availability or availableUnits manually
+export const setPropertyAvailability = async (req, res) => {
+    try {
+        const property = await Property.findById(req.params.id);
+        if (!property) return res.status(404).json({ error: 'Property not found' });
+        if (property.landlord.toString() !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+
+        // Accept availableUnits and/or availabilityStatus in body
+        const updates = {};
+        if (req.body.availableUnits !== undefined) {
+            const v = num(req.body.availableUnits, property.availableUnits || 0);
+            updates.availableUnits = Math.max(0, Math.min(v, req.body.totalUnits !== undefined ? num(req.body.totalUnits, property.totalUnits || 0) : property.totalUnits || v));
+        }
+        if (req.body.totalUnits !== undefined) {
+            const t = num(req.body.totalUnits, property.totalUnits || 0);
+            updates.totalUnits = t;
+            // ensure availableUnits does not exceed total
+            if (updates.availableUnits === undefined) {
+                updates.availableUnits = Math.min(property.availableUnits || 0, t);
+            } else {
+                updates.availableUnits = Math.min(updates.availableUnits, t);
+            }
+        }
+        if (req.body.availabilityStatus) {
+            const allowedAvailability = ['Available','Fully Occupied','Not Yet Ready'];
+            if (allowedAvailability.includes(req.body.availabilityStatus)) updates.availabilityStatus = req.body.availabilityStatus;
+        }
+
+        // If landlord updated availableUnits (or totalUnits caused a change),
+        // and they didn't explicitly set availabilityStatus, auto-set it to
+        // 'Fully Occupied' when availableUnits <= 0 so public listings behave correctly.
+        if (typeof updates.availableUnits !== 'undefined' && !updates.availabilityStatus) {
+            if (updates.availableUnits <= 0) {
+                updates.availabilityStatus = 'Fully Occupied';
+            } else {
+                // If there are units available and no explicit status provided,
+                // default to 'Available' to ensure consistency.
+                updates.availabilityStatus = 'Available';
+            }
+        }
+
+        const updated = await Property.findByIdAndUpdate(req.params.id, updates, { new: true });
+        res.json({ message: 'Availability updated', property: updated });
+    } catch (e) {
+        console.error('setPropertyAvailability error', e);
+        res.status(500).json({ error: e.message });
     }
 };

@@ -91,6 +91,7 @@ function renderMessagesWithPropertyContext(messages, currentUser, targetUserAvat
       let propertyImgSrc = propertyImg
         ? (propertyImg.startsWith('http') ? propertyImg : buildUpload(`/properties/${propertyImg}`))
         : '/default-property.png';
+      console.log('Property image src:', propertyImgSrc, 'propertyImg:', propertyImg);
       return [
         <div key={`property-context-${msg.property._id || i}`} className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'24px 0 12px 0',color:'#fff',maxWidth:420,position:'relative',zIndex:2}}>
           <img src={propertyImgSrc} alt="Property" style={{width:64,height:64,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />

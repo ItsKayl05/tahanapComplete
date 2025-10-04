@@ -16,22 +16,36 @@ const barangayList = [
 ];
 const categories = ['Apartment','Dorm','House','Condominium','Studio'];
 
+const LANDMARKS = [
+          "park",
+          "church",
+          "public market",
+          "major highway",
+          "public transport stops",
+          "banks and atms",
+          "restaurant/food centers",
+          "convenience store/supermarket",
+          "school/university",
+          "hospital/health care"
+];
+
 const AddProperties = () => {
+
   // Panoramic image state
   const [panorama, setPanorama] = useState(null);
   const [panoramaPreview, setPanoramaPreview] = useState(null);
 
   // Handle panoramic image upload
   const handlePanoramaChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const validType = file.type.startsWith('image/');
-    const sizeOk = file.size <= 8*1024*1024;
-    if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
-    if (!sizeOk) { toast.error('Panoramic image exceeds 8MB limit.'); return; }
-    if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
-    setPanorama(file);
-    setPanoramaPreview(URL.createObjectURL(file));
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const validType = file.type.startsWith('image/');
+  const sizeOk = file.size <= 10*1024*1024;
+  if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
+  if (!sizeOk) { toast.error('Panoramic file too large (max 10MB).'); return; }
+  if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
+  setPanorama(file);
+  setPanoramaPreview(URL.createObjectURL(file));
   };
   const removePanorama = () => {
     if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
@@ -43,7 +57,7 @@ const AddProperties = () => {
     const { logout } = useContext(AuthContext);
     const navigate = useNavigate();
   const [propertyData, setPropertyData] = useState({
-    title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available'
+    title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1, availableUnits: 1
   });
   const [imagePreviews, setImagePreviews] = useState([]);
     const [videoPreview, setVideoPreview] = useState(null);
@@ -77,7 +91,13 @@ const AddProperties = () => {
 
   const handleInputChange = async (e) => {
     const { name, value, type, checked } = e.target;
-    setPropertyData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    let newValue = value;
+    // Normalize landmark value to match filter (trim, exact string)
+    if (name === 'landmarks') {
+      const found = LANDMARKS.find(l => l === value);
+      newValue = found || value;
+    }
+    setPropertyData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : newValue }));
 
     // If address or barangay changes, geocode
     if (name === 'address' || name === 'barangay') {
@@ -97,13 +117,13 @@ const AddProperties = () => {
         if (!selected.length) return;
         const spaceLeft = MAX_IMAGES - propertyData.images.length;
         if (spaceLeft <= 0) { toast.info(`Max ${MAX_IMAGES} images reached.`); return; }
-        const usable = selected.slice(0, spaceLeft).filter(f => {
-            const validType = f.type.startsWith('image/');
-            const sizeOk = f.size <= 4*1024*1024;
+    const usable = selected.slice(0, spaceLeft).filter(f => {
+      const validType = f.type.startsWith('image/');
+      const sizeOk = f.size <= 10*1024*1024;
             if (!validType) toast.warn(`${f.name} skipped (not image).`);
-            if (!sizeOk) toast.warn(`${f.name} skipped (>4MB).`);
-            return validType && sizeOk;
-        });
+            if (!sizeOk) toast.warn(`${f.name} skipped (image file too large, max 10MB).`);
+      return validType && sizeOk;
+    });
         if (!usable.length) return;
         setPropertyData(p => ({ ...p, images:[...p.images, ...usable] }));
         setImagePreviews(p => [...p, ...usable.map(f => URL.createObjectURL(f))]);
@@ -126,8 +146,8 @@ const AddProperties = () => {
         const file = e.target.files?.[0];
         if (!file) return;
         const allowed = ['video/mp4','video/webm','video/ogg'];
-        if (!allowed.includes(file.type)) { toast.error('Invalid video format. Use MP4, WebM, or OGG.'); return; }
-        if (file.size > 10*1024*1024) { toast.error('Video exceeds 10MB limit.'); return; }
+  if (!allowed.includes(file.type)) { toast.error('Invalid video format. Use MP4, WebM, or OGG.'); return; }
+  if (file.size > 50*1024*1024) { toast.error('Video file too large (max 50MB).'); return; }
         if (propertyData.video) URL.revokeObjectURL(videoPreview);
         setPropertyData(p => ({ ...p, video:file }));
         setVideoPreview(URL.createObjectURL(file));
@@ -254,6 +274,16 @@ const AddProperties = () => {
                 </select>
               </div>
               <div className="form-group">
+                <label className="required">Total Units</label>
+                <input className="ll-field" type="number" min={1} name="totalUnits" value={propertyData.totalUnits} onChange={handleInputChange} required />
+                <div className="field-hint small">Set how many rentable units this listing has (e.g., number of rooms/slots).</div>
+              </div>
+              <div className="form-group">
+                <label>Available Units</label>
+                <input className="ll-field" type="number" min={0} name="availableUnits" value={propertyData.availableUnits} onChange={handleInputChange} />
+                <div className="field-hint small">Optional: leave blank to default to Total Units.</div>
+              </div>
+              <div className="form-group">
                 <label>Property Size (sqm)</label>
                 <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" />
               </div>
@@ -269,8 +299,13 @@ const AddProperties = () => {
                 {propertyData.petFriendly && <input className="ll-field mt-6" name="allowedPets" value={propertyData.allowedPets} placeholder="Allowed pets (e.g. Cats, Dogs)" onChange={handleInputChange} />}
               </div>
               <div className="form-group full">
-                <label>Nearby Landmarks</label>
-                <input className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange} placeholder="School, mall, hospital etc." />
+                <label>Nearby Landmark</label>
+                <select className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange} required>
+                  <option value="">Select Landmark</option>
+                  {LANDMARKS.map(l => (
+                    <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
+                  ))}
+                </select>
               </div>
               <div className="form-group full">
                 <label>House Rules</label>
@@ -291,7 +326,7 @@ const AddProperties = () => {
               {/* Images Section */}
               <div className="images-section" style={{marginTop:'0'}}>
                 <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
-                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 4MB each).</p>
+                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
                 <div className="current-images-grid">
                   {imagePreviews.length ? imagePreviews.map((url, i) => (
                     <div key={i} className="image-chip">
@@ -303,7 +338,7 @@ const AddProperties = () => {
                 <div className="new-upload-block">
                   <label className="file-drop-modern">
                     <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-                    <span>Add / Replace Images</span>
+                    <span>Add Images</span>
                   </label>
                 </div>
               </div>
@@ -311,13 +346,12 @@ const AddProperties = () => {
               {/* 360° Panoramic Image Section */}
               <div className="panorama-section" style={{marginTop:'32px'}}>
                 <h3 className="section-title">360° Panoramic Image</h3>
-                <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 8MB, equirectangular projection).</p>
+                <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
                 {panoramaPreview ? (
                   <div style={{marginBottom:'12px'}}>
                     <PhotoDomeViewer imageUrl={panoramaPreview} mode="MONOSCOPIC" />
                     <div style={{marginTop:'8px', display:'flex', gap:'8px'}}>
                       <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove</button>
-                      <button type="button" className="ll-btn tiny" onClick={()=>document.getElementById('panorama-input').click()}>Replace</button>
                     </div>
                   </div>
                 ) : (
@@ -330,11 +364,11 @@ const AddProperties = () => {
               {/* Video Section */}
               <div className="video-section" style={{marginTop:'32px'}}>
                 <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>{propertyData.video ? 'selected' : 'none'}</span></h3>
-                <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 10MB). Uploading a new one replaces the existing video.</p>
+                <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
                 {!videoPreview && !propertyData.video && (
                   <label className="file-drop-modern">
                     <input type="file" accept="video/mp4,video/webm,video/ogg" onChange={handleVideoChange} />
-                    <span>Select / Replace Video</span>
+                    <span>Select Video</span>
                   </label>
                 )}
                 {(videoPreview || propertyData.video) && (
@@ -342,7 +376,6 @@ const AddProperties = () => {
                     <video src={videoPreview} controls preload="none" className="video-preview" />
                     <div className="video-actions">
                       <button type="button" className="ll-btn tiny danger" onClick={removeVideo}>Remove Video</button>
-                      <button type="button" className="ll-btn tiny" onClick={()=>document.querySelector('input[type="file"][accept^="video"]').click()}>Change</button>
                     </div>
                   </div>
                 )}

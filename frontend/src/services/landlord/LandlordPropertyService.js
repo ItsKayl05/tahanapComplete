@@ -31,3 +31,17 @@ export async function deleteProperty(id) {
     throw new Error(err.response?.data?.message || 'Failed to delete property');
   }
 }
+
+export async function setAvailability(id, payload) {
+  try {
+    const res = await fetch(buildApi(`/properties/${id}/availability`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to update availability');
+    return await res.json();
+  } catch (err) {
+    throw new Error(err.response?.data?.message || err.message || 'Failed to update availability');
+  }
+}
